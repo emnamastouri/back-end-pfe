@@ -1,0 +1,184 @@
+const express =require('express');
+const router = express.Router();
+const Administrateur=require('../models/Administrateur');
+const multer =require('multer'); 
+const fs= require('fs');
+const path = require('path');
+const bcrypt=require('bcrypt');
+const jwt=require('jsonwebtoken');
+
+bo=true;
+
+  filename='';
+const mystorage=multer.diskStorage({
+    destination: './profils/administrateur',
+    filename:(req,file,redirect)=>{
+        let date=Date.now();
+        let firstName = req.body.firstname;
+        let lastName = req.body.lastname; 
+        let fl=firstName+lastName+'.'+file.mimetype.split('/')[1];
+        redirect(null,fl);
+        filename=fl;
+    }
+}) 
+const upload =multer({storage : mystorage});
+
+//login request
+
+router.post('/login', async (req, res) => {
+  const { cin, password } = req.body;
+
+  if (!cin || !password) {
+    res.status(400).send({ error: 'CIN and password are required' });
+    return;
+  }
+
+  const administrateur = await Administrateur.findOne({ cin }).exec();
+
+  if (!administrateur) {
+    res.status(401).send({ error: 'Invalid CIN or password' });
+    return;
+  }
+
+  const valid = bcrypt.compareSync(password, administrateur.password);
+
+  if (!valid) {
+    res.status(401).send({ error: 'Invalid CIN or password' });
+    return;
+  }
+
+  const payload = {
+    cin: administrateur.cin,
+    email: administrateur.email,
+    fullname: administrateur.firstname + administrateur.lastname,
+  };
+
+  const token = jwt.sign(payload, '27272702');
+
+  res.status(200).send({ mytoken: token });
+});
+
+
+
+
+
+//ajouter un administrateur
+router.post('/ajout',upload.any('image'),(req,res)=>{
+     let data=req.body;
+     let administrateur=new Administrateur(data);
+     administrateur.date=new Date();
+    administrateur.image=filename;
+    //cryptage de mot de passe
+    salt = bcrypt.genSaltSync(10);
+    administrateur.password =bcrypt.hashSync(data.password ,salt);
+
+    administrateur.tags=data.tags.split(',');
+    administrateur.save()
+     .then(
+        (saved)=>{
+        filename='';
+        res.status(200).send(saved)
+
+        })
+        .catch(
+            (err)=>{
+              res.status(400).send(err)
+            }
+        )
+})
+
+//delete administrateur by cin
+router.delete('/delete/:cin',async(req,res)=>{
+  let cin = req.params.cin
+  // Delete the image file from the profils/administrateur folder
+  const admin= await Administrateur.findOne({cin:cin});
+  //delete the image from the folder
+  if (admin.image && fs.existsSync(path.join(__dirname, '..', 'profils/administrateur', admin.image))) {
+    fs.unlinkSync(path.join(__dirname, '..', 'profils/administrateur', admin.image));
+  }
+
+  Administrateur.findOneAndDelete({cin:cin})
+  .then(
+    (administrateur)=>{
+      res.status(200).send(administrateur)
+    }
+  )
+  .catch(
+    (err)=>{
+      res.status(400).send(err);
+    }
+  )
+    
+})
+
+
+
+//update administrateur data
+router.put('/update/:cin', upload.any('image'), async (req, res) => {
+  let cin = req.params.cin;
+  let data = req.body;
+  data.tags = data.tags.split(',');
+
+  // Check if a new image file was uploaded
+  if (req.files.length > 0) {
+    
+    //delete the existing image file from the profils/administrateur folder
+    if (data.image && fs.existsSync(path.join(__dirname, '..', 'profils/administrateur', data.image))) {
+      fs.unlinkSync(path.join(__dirname, '..', 'profils/administrateur', data.image));
+    }
+    // New image file uploaded, replace the existing image
+    data.image = req.files[0].filename;
+  }
+  salt = bcrypt.genSaltSync(10);
+  data.password =bcrypt.hashSync(data.password ,salt);
+  // Use findOneAndUpdate() to update the existing document
+  try {
+    const administrateur = await Administrateur.findOneAndUpdate({ cin: cin }, data, { new: true });
+    if (!administrateur) {
+      return res.status(404).send({ message: 'Administrateur not found' });
+    }
+
+    // Clear the filename variable
+    filename = '';
+
+    // Send the updated document as the response
+    res.status(200).send(administrateur);
+  } catch (err) {
+    res.status(400).send(err);
+  }
+});
+
+
+
+//get tout les données de tout les administrateur
+router.get('/all',(req,res)=>{
+  Administrateur.find({})
+    .then((administrateurs) => {
+      res.status(200).json(administrateurs);
+    })
+    .catch((err) => {
+      res.status(500).send(err);
+    });
+    
+})
+//get l'administrateur by his cin
+router.get('/getbycin/:cin',(req,res)=>{
+  let cin= req.params.cin
+  Administrateur.findOne({cin:cin})
+  .then((administrateurs) => {
+    res.status(200).send(administrateurs);
+  })
+  .catch((err) => {
+    res.status(500).send(err);
+  });
+    
+})
+
+
+
+
+
+
+
+
+module.exports=router;

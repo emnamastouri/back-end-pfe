@@ -1,0 +1,197 @@
+const express =require('express');
+const router = express.Router();
+const Agent=require('../models/Agent');
+const multer =require('multer'); 
+const fs= require('fs');
+const path = require('path');
+const bcrypt=require('bcrypt');
+const jwt=require('jsonwebtoken');
+bo=true;
+
+  filename='';
+const mystorage=multer.diskStorage({
+    destination: './profils/administrateur',
+    filename:(req,file,redirect)=>{
+        let date=Date.now();
+        let firstName = req.body.firstname;
+        let lastName = req.body.lastname; 
+        let fl=firstName+lastName+'.'+file.mimetype.split('/')[1];
+        redirect(null,fl);
+        filename=fl;
+    }
+}) 
+const upload =multer({storage : mystorage});
+
+
+
+
+
+
+
+
+
+//login request
+
+router.post('/login', async (req, res) => {
+    const { cin, password } = req.body;
+  
+    if (!cin || !password) {
+      res.status(400).send({ error: 'CIN and password are required' });
+      return;
+    }
+  
+    const agent = await Agent.findOne({ cin }).exec();
+  
+    if (!agent) {
+      res.status(401).send({ error: 'Invalid CIN or password' });
+      return;
+    }
+  
+    const valid = bcrypt.compareSync(password, agent.password);
+  
+    if (!valid) {
+      res.status(401).send({ error: 'Invalid CIN or password' });
+      return;
+    }
+  
+    const payload = {
+      cin: agent.cin,
+      email: agent.email,
+      fullname: agent.firstname + agent.lastname,
+    };
+  
+    const token = jwt.sign(payload, '27272702');
+  
+    res.status(200).send({ mytoken: token });
+  });
+  
+  
+  
+  
+  
+  //ajouter un agent
+  router.post('/ajout',upload.any('image'),(req,res)=>{
+       let data=req.body;
+       let agent=new Agent(data);
+       agent.date=new Date();
+       agent.image=filename;
+      //cryptage de mot de passe
+      salt = bcrypt.genSaltSync(10);
+      agent.password =bcrypt.hashSync(data.password ,salt);
+  
+      agent.tags=data.tags.split(',');
+      agent.save()
+       .then(
+          (saved)=>{
+          filename='';
+          res.status(200).send(saved)
+  
+          })
+          .catch(
+              (err)=>{
+                res.status(400).send(err)
+              }
+          )
+  })
+
+
+  
+  //delete agent by cin
+  router.delete('/delete/:cin',async(req,res)=>{
+    let cin = req.params.cin
+    // Delete the image file from the profils/agent folder
+    const agent= await Agent.findOne({cin:cin});
+    //delete the image from the folder
+    if (agent.image && fs.existsSync(path.join(__dirname, '..', 'profils/agent', agent.image))) {
+      fs.unlinkSync(path.join(__dirname, '..', 'profils/agent', agent.image));
+    }
+  
+    Agent.findOneAndDelete({cin:cin})
+    .then(
+      (agent)=>{
+        res.status(200).send(agent)
+      }
+    )
+    .catch(
+      (err)=>{
+        res.status(400).send(err);
+      }
+    )
+      
+  })
+  
+  
+  
+  //update agent data
+  router.put('/update/:cin', upload.any('image'), async (req, res) => {
+    let cin = req.params.cin;
+    let data = req.body;
+    data.tags = data.tags.split(',');
+  
+    // Check if a new image file was uploaded
+    if (req.files.length > 0) {
+      
+      //delete the existing image file from the profils/agent folder
+      if (data.image && fs.existsSync(path.join(__dirname, '..', 'profils/agent', data.image))) {
+        fs.unlinkSync(path.join(__dirname, '..', 'profils/agent', data.image));
+      }
+      // New image file uploaded, replace the existing image
+      data.image = req.files[0].filename;
+    }
+    salt = bcrypt.genSaltSync(10);
+  data.password =bcrypt.hashSync(data.password ,salt);
+  
+    // Use findOneAndUpdate() to update the existing document
+    try {
+      const agent = await Agent.findOneAndUpdate({ cin: cin }, data, { new: true });
+      if (!agent) {
+        return res.status(404).send({ message: 'agent not found' });
+      }
+  
+      // Clear the filename variable
+      filename = '';
+  
+      // Send the updated document as the response
+      res.status(200).send(agent);
+    } catch (err) {
+      res.status(400).send(err);
+    }
+  });
+  
+  
+  
+  //get tout les données de tout les agent
+  router.get('/all',(req,res)=>{
+    Agent.find({})
+      .then((agent) => {
+        res.status(200).json(agent);
+      })
+      .catch((err) => {
+        res.status(500).send(err);
+      });
+      
+  })
+  //get l'agent by his cin
+  router.get('/getbycin/:cin',(req,res)=>{
+    let cin= req.params.cin
+    Agent.findOne({cin:cin})
+    .then((agent) => {
+      res.status(200).send(agent);
+    })
+    .catch((err) => {
+      res.status(500).send(err);
+    });
+      
+  })
+  
+
+
+
+
+
+
+
+
+
+
+module.exports=router;
