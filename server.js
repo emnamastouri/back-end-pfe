@@ -16,7 +16,8 @@ app.use(cors());
 // Routes
 app.use('/administrateur', administrateurapi);
 app.use('/agent', agentapi);
-app.use('/getimage', express.static('./profils'));
+app.use('/getagentimage', express.static('./profils/agent'));
+app.use('/getadminimage', express.static('./profils/administrateur'));
 
 // Start server
 app.listen(3000, () => {

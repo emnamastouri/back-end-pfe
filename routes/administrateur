@@ -72,7 +72,6 @@ router.post('/ajout',upload.any('image'),(req,res)=>{
     salt = bcrypt.genSaltSync(10);
     administrateur.password =bcrypt.hashSync(data.password ,salt);
 
-    administrateur.tags=data.tags.split(',');
     administrateur.save()
      .then(
         (saved)=>{

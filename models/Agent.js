@@ -22,9 +22,7 @@ const Agent =mongoose.model('Agent',{
     image:{
         type:String
     },
-    tags:{
-        type:Array
-    },
+   
     date:{
         type:String
     }

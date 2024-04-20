@@ -10,7 +10,7 @@ bo=true;
 
   filename='';
 const mystorage=multer.diskStorage({
-    destination: './profils/administrateur',
+    destination: './profils/agent',
     filename:(req,file,redirect)=>{
         let date=Date.now();
         let firstName = req.body.firstname;
@@ -57,7 +57,9 @@ router.post('/login', async (req, res) => {
     const payload = {
       cin: agent.cin,
       email: agent.email,
-      fullname: agent.firstname + agent.lastname,
+      firstname: agent.firstname,
+      lastname:agent.lastname,
+      password:agent.req.body.password
     };
   
     const token = jwt.sign(payload, '27272702');
@@ -79,7 +81,6 @@ router.post('/login', async (req, res) => {
       salt = bcrypt.genSaltSync(10);
       agent.password =bcrypt.hashSync(data.password ,salt);
   
-      agent.tags=data.tags.split(',');
       agent.save()
        .then(
           (saved)=>{
