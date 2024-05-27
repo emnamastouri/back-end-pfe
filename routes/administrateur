@@ -22,6 +22,35 @@ const mystorage=multer.diskStorage({
     }
 }) 
 const upload =multer({storage : mystorage});
+//changer mot de passe 
+router.put('/changepass', async (req, res) => {
+  const { cin, password, newpassword, newpasswordrepeated } = req.body;
+
+  if (!password) {
+    return res.status(400).send({ error: ' Mot de passe requis' });
+  }
+
+  if (!newpassword || !newpasswordrepeated || newpassword !== newpasswordrepeated) {
+    return res.status(400).send({ error: ' Entrez et confirmez votre nouveau mot de passe ' });
+  }
+
+  const admin = await Administrateur.findOne({ cin }).exec();
+
+  if (!admin) {
+    return res.status(401).send({ error: ' Mot de passe invalide '  });
+  }
+
+  const valid = bcrypt.compareSync(password, admin.password);
+
+  if (!valid) {
+    return res.status(401).send({ error: 'Mot de passe invalide' });
+  }
+
+  const hashedPassword = await bcrypt.hash(newpassword, 10);
+  await Administrateur.findOneAndUpdate({ cin }, { password: hashedPassword }).exec();
+
+  res.status(200).json({ message: 'Password changed successfully' });
+});  
 
 //login request
 
@@ -29,21 +58,21 @@ router.post('/login', async (req, res) => {
   const { cin, password } = req.body;
 
   if (!cin || !password) {
-    res.status(400).send({ error: 'CIN and password are required' });
+    res.status(400).send({ error: 'CIN et mot de passe sont requis' });
     return;
   }
 
   const administrateur = await Administrateur.findOne({ cin }).exec();
 
   if (!administrateur) {
-    res.status(401).send({ error: 'Invalid CIN or password' });
+    res.status(404).send({ error: 'CIN ou mot de passe invalide' });
     return;
   }
 
   const valid = bcrypt.compareSync(password, administrateur.password);
 
   if (!valid) {
-    res.status(401).send({ error: 'Invalid CIN or password' });
+    res.status(404).send({ error: 'CIN ou mot de passe invalide' });
     return;
   }
 
@@ -116,7 +145,6 @@ router.delete('/delete/:cin',async(req,res)=>{
 router.put('/update/:cin', upload.any('image'), async (req, res) => {
   let cin = req.params.cin;
   let data = req.body;
-  data.tags = data.tags.split(',');
 
   // Check if a new image file was uploaded
   if (req.files.length > 0) {
@@ -128,13 +156,12 @@ router.put('/update/:cin', upload.any('image'), async (req, res) => {
     // New image file uploaded, replace the existing image
     data.image = req.files[0].filename;
   }
-  salt = bcrypt.genSaltSync(10);
-  data.password =bcrypt.hashSync(data.password ,salt);
+
   // Use findOneAndUpdate() to update the existing document
   try {
     const administrateur = await Administrateur.findOneAndUpdate({ cin: cin }, data, { new: true });
     if (!administrateur) {
-      return res.status(404).send({ message: 'Administrateur not found' });
+      return res.status(404).send({ message: 'Administrateur introuvable' });
     }
 
     // Clear the filename variable

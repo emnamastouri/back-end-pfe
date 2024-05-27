@@ -20,6 +20,6 @@ app.use('/getagentimage', express.static('./profils/agent'));
 app.use('/getadminimage', express.static('./profils/administrateur'));
 
 // Start server
-app.listen(3000, () => {
-    console.log('Server is running on port 3000');
+app.listen(3100, () => {
+    console.log('Server is running on port 3100');
 });

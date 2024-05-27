@@ -27,6 +27,27 @@ tags:{
 },
 date:{
     type:String
+},
+birthday:{
+    type:String
+},
+phone:{
+    type:String
+},
+twitter:{
+    type:String
+},
+facebook:{
+    type:String
+},
+linkedin:{
+    type:String
+},
+instagrame:{
+    type:String
+},
+bio:{
+    type:String
 }
 })
 module.exports=Administrateur;

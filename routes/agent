@@ -22,10 +22,35 @@ const mystorage=multer.diskStorage({
 }) 
 const upload =multer({storage : mystorage});
 
+//changer mot de passe 
+router.put('/changepass', async (req, res) => {
+  const { cin, password, newpassword, newpasswordrepeated } = req.body;
 
+  if (!password) {
+    return res.status(400).send({ error: ' Mot de passe requis' });
+  }
 
+  if (!newpassword || !newpasswordrepeated || newpassword !== newpasswordrepeated) {
+    return res.status(400).send({ error: ' Entrez et confirmez votre nouveau mot de passe' });
+  }
 
+  const agent = await Agent.findOne({ cin }).exec();
 
+  if (!agent) {
+    return res.status(401).send({ error: ' Mot de passe invalide' });
+  }
+
+  const valid = bcrypt.compareSync(password, agent.password);
+
+  if (!valid) {
+    return res.status(401).send({ error: 'Mot de passe invalide' });
+  }
+
+  const hashedPassword = await bcrypt.hash(newpassword, 10);
+  await Agent.findOneAndUpdate({ cin }, { password: hashedPassword }).exec();
+
+  res.status(200).json({ message: 'Password changed successfully' });
+});  
 
 
 
@@ -36,21 +61,21 @@ router.post('/login', async (req, res) => {
   const { cin, password } = req.body;
 
   if (!cin || !password) {
-    res.status(400).send({ error: 'CIN and password are required' });
+    res.status(400).send({ error: 'CIN et mot de passe sont requis' });
     return;
   }
 
   const agent = await Agent.findOne({ cin }).exec();
 
   if (!agent) {
-    res.status(401).send({ error: 'Invalid CIN or password' });
+    res.status(401).send({ error: 'CIN ou mot de passe invalide' });
     return;
   }
 
   const valid = bcrypt.compareSync(password, agent.password);
 
   if (!valid) {
-    res.status(401).send({ error: 'Invalid CIN or password' });
+    res.status(401).send({ error: 'CIN ou mot de passe invalide' });
     return;
   }
 
@@ -119,8 +144,7 @@ router.post('/login', async (req, res) => {
     )
       
   })
-  
-  
+
   
   //update agent data
   router.put('/update/:cin', upload.any('image'), async (req, res) => {
@@ -137,14 +161,11 @@ router.post('/login', async (req, res) => {
       // New image file uploaded, replace the existing image
       data.image = req.files[0].filename;
     }
-    salt = bcrypt.genSaltSync(10);
-  data.password =bcrypt.hashSync(data.password ,salt);
-  
     // Use findOneAndUpdate() to update the existing document
     try {
       const agent = await Agent.findOneAndUpdate({ cin: cin }, data, { new: true });
       if (!agent) {
-        return res.status(404).send({ message: 'agent not found' });
+        return res.status(404).send({ message: 'Agent introuvable' });
       }
   
       // Clear the filename variable
