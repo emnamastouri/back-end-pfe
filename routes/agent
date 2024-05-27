@@ -33,39 +33,38 @@ const upload =multer({storage : mystorage});
 //login request
 
 router.post('/login', async (req, res) => {
-    const { cin, password } = req.body;
-  
-    if (!cin || !password) {
-      res.status(400).send({ error: 'CIN and password are required' });
-      return;
-    }
-  
-    const agent = await Agent.findOne({ cin }).exec();
-  
-    if (!agent) {
-      res.status(401).send({ error: 'Invalid CIN or password' });
-      return;
-    }
-  
-    const valid = bcrypt.compareSync(password, agent.password);
-  
-    if (!valid) {
-      res.status(401).send({ error: 'Invalid CIN or password' });
-      return;
-    }
-  
-    const payload = {
-      cin: agent.cin,
-      email: agent.email,
-      firstname: agent.firstname,
-      lastname:agent.lastname,
-      password:agent.req.body.password
-    };
-  
-    const token = jwt.sign(payload, '27272702');
-  
-    res.status(200).send({ mytoken: token });
-  });
+  const { cin, password } = req.body;
+
+  if (!cin || !password) {
+    res.status(400).send({ error: 'CIN and password are required' });
+    return;
+  }
+
+  const agent = await Agent.findOne({ cin }).exec();
+
+  if (!agent) {
+    res.status(401).send({ error: 'Invalid CIN or password' });
+    return;
+  }
+
+  const valid = bcrypt.compareSync(password, agent.password);
+
+  if (!valid) {
+    res.status(401).send({ error: 'Invalid CIN or password' });
+    return;
+  }
+
+  const payload = {
+    cin: agent.cin,
+    email: agent.email,
+    fullname: agent.firstname + agent.lastname,
+  };
+
+  const token = jwt.sign(payload, '27272702');
+
+  res.status(200).send({ mytoken: token });
+});
+
   
   
   
@@ -127,7 +126,6 @@ router.post('/login', async (req, res) => {
   router.put('/update/:cin', upload.any('image'), async (req, res) => {
     let cin = req.params.cin;
     let data = req.body;
-    data.tags = data.tags.split(',');
   
     // Check if a new image file was uploaded
     if (req.files.length > 0) {
